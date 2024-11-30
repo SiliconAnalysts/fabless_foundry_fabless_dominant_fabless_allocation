@@ -279,15 +279,15 @@
             const costA = calculateEffectiveWaferCost(foundryA, allocA);
             const costB = calculateEffectiveWaferCost(foundryB, allocB);
 
-            const annualDiesA = diesPerWafer * foundryA.yield * (allocA / 100) * 100000;
-            const annualDiesB = diesPerWafer * foundryB.yield * (allocB / 100) * 100000;
-            const totalDies = (annualDiesA + annualDiesB) / 1e6;
+            const annualDiesA = totalDemand * foundryA.yield * (allocA / 100);
+            const annualDiesB = totalDemand * foundryB.yield * (allocB / 100);
+            const totalDies = totalDemand/1000000;
 
             const dieCostA = costA / (diesPerWafer * foundryA.yield);
             const dieCostB = costB / (diesPerWafer * foundryB.yield);
             const weightedDieCost = (costA * allocA + costB * allocB) / 100 / (diesPerWafer * ((foundryA.yield * allocA) + (foundryB.yield * allocB)) / 100);
 
-            const totalCost = ((dieCostA * annualDiesA + dieCostB * annualDiesB) / 1000000).toFixed(2);
+            const totalCost = ((dieCostA * annualDiesA + dieCostB * annualDiesB) / 1000000).toFixed(0);
 
             return {
                 effectiveCostA: costA,
@@ -352,7 +352,7 @@
             document.getElementById('dieCostB').textContent = results.dieCostB.toFixed(2);
             document.getElementById('weightedDieCost').textContent = results.weightedDieCost.toFixed(2);
             document.getElementById('totalCost').textContent = results.totalCost;
-            document.getElementById('totalDies').textContent = results.totalDies.toFixed(2);
+            document.getElementById('totalDies').textContent = results.totalDies.toFixed(0);
 
             // Calculate and display optimal allocation
             const optimal = findOptimalAllocation();

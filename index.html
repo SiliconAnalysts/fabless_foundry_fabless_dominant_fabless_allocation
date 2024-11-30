@@ -43,23 +43,39 @@
         }
         .results-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 20px;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 16px;
             margin: 20px 0;
         }
+
         .result-card {
             background: #f8f9fa;
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            min-width: 0; /* Prevents overflow */
         }
+
         .result-card h2 {
-            font-size: 1.5rem;
+            font-size: 1.25rem;
             margin: 0 0 20px 0;
             color: #1a1a1a;
             border-bottom: 2px solid #e1e1e1;
             padding-bottom: 10px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
+        
+        .chart-container {
+            height: 500px; /* Increased from 400px */
+            margin-top: 30px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+        
         .result-value {
             display: flex;
             justify-content: space-between;
@@ -358,11 +374,30 @@
                     responsive: true,
                     maintainAspectRatio: false,
                     scales: {
-                        x: { title: { display: true, text: 'Foundry B Allocation %' } },
-                        y: { title: { display: true, text: 'Weighted Die Cost ($)' } },
-                    },
+                        x: { 
+                title: { display: true, text: 'Foundry B Allocation %' },
+                grid: {
+                    color: '#e0e0e0'
+                }
+            },
+            y: { 
+                title: { display: true, text: 'Weighted Die Cost ($)' },
+                grid: {
+                    color: '#e0e0e0'
                 },
-            });
+                beginAtZero: false
+            }
+        },
+        layout: {
+            padding: {
+                top: 10,
+                right: 20,
+                bottom: 10,
+                left: 20
+            }
+        }
+    }
+});
         }
 
         document.querySelectorAll('input').forEach(input => {

@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Multi-Foundry Volume Optimizer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .input-section {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        input {
+            width: calc(100% - 16px);
+            padding: 8px;
+            margin: 5px 0 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+        }
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .result-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .chart-container {
+            height: 400px;
+            margin-top: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+        .optimal-allocation {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .error {
+            color: red;
+            font-size: 0.8em;
+            margin-top: -10px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Multi-Foundry Volume Optimizer</h1>
+
+        <div class="grid">
+            <div class="input-section">
+                <h2>Input Parameters</h2>
+                <div>
+                    <label>Total Die Demand (M)</label>
+                    <input type="number" id="totalDemand" value="90" step="0.1">
+                </div>
+                <div>
+                    <label>Dies per Wafer</label>
+                    <input type="number" id="diesPerWafer" value="1000" step="1">
+                </div>
+            </div>
+        </div>
+
+        <div class="grid">
+            <div class="input-section">
+                <h2>Foundry A Parameters</h2>
+                <div>
+                    <label>Base Wafer Cost ($)</label>
+                    <input type="number" id="foundryACost" value="12000">
+                </div>
+                <div>
+                    <label>Volume Discount Rate (1-99%)</label>
+                    <input type="number" id="foundryADiscount" value="15" min="1" max="99">
+                    <div id="foundryADiscountError" class="error"></div>
+                </div>
+                <div>
+                    <label>Yield (1-99%)</label>
+                    <input type="number" id="foundryAYield" value="95" min="1" max="99">
+                    <div id="foundryAYieldError" class="error"></div>
+                </div>
+            </div>
+
+            <div class="input-section">
+                <h2>Foundry B Parameters</h2>
+                <div>
+                    <label>Base Wafer Cost ($)</label>
+                    <input type="number" id="foundryBCost" value="13500">
+                </div>
+                <div>
+                    <label>Volume Discount Rate (1-99%)</label>
+                    <input type="number" id="foundryBDiscount" value="20" min="1" max="99">
+                    <div id="foundryBDiscountError" class="error"></div>
+                </div>
+                <div>
+                    <label>Yield (1-99%)</label>
+                    <input type="number" id="foundryBYield" value="92" min="1" max="99">
+                    <div id="foundryBYieldError" class="error"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="optimal-allocation">
+            <h2>Optimal Allocation</h2>
+            <div>Foundry A: <span id="optimalAllocA">--</span>%</div>
+            <div>Foundry B: <span id="optimalAllocB">--</span>%</div>
+            <div>Minimum Die Cost: $<span id="minDieCost">--</span></div>
+        </div>
+
+        <div class="input-section">
+            <h2>Volume Allocation</h2>
+            <input type="range" id="allocation" min="0" max="100" value="50">
+            <div style="display: flex; justify-content: space-between; margin-top: 5px;">
+                <span>Foundry A: <span id="allocA">50</span>%</span>
+                <span>Foundry B: <span id="allocB">50</span>%</span>
+            </div>
+        </div>
+
+        <div class="results-grid">
+            <div class="result-card">
+                <h2>Effective Wafer Costs</h2>
+                <div>Foundry A: $<span id="effectiveCostA">0</span></div>
+                <div>Foundry B: $<span id="effectiveCostB">0</span></div>
+            </div>
+            <div class="result-card">
+                <h2>Die Costs</h2>
+                <div>Foundry A: $<span id="dieCostA">0</span></div>
+                <div>Foundry B: $<span id="dieCostB">0</span></div>
+                <div>Weighted Die Cost: $<span id="weightedDieCost">0</span></div>
+            </div>
+            <div class="result-card">
+                <h2>Annual Production</h2>
+                <div>Total Cost: $<span id="totalCost">0</span>M</div>
+                <div>Total Dies: <span id="totalDies">0</span>M</div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="costChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        let chart = null;
+
+        function validateInput(value, min, max, elementId) {
+            const errorElement = document.getElementById(elementId + 'Error');
+            if (value < min || value > max) {
+                errorElement.textContent = `Value must be between ${min}% and ${max}%`;
+                return false;
+            }
+            errorElement.textContent = '';
+            return true;
+        }
+
+        function calculateEffectiveWaferCost(foundry, allocation) {
+            const volumeDiscount = (foundry.discount / 100) * (1-allocation / 100);
+            const discountedCost = foundry.baseCost * (1 - volumeDiscount);
+
+            const k = 0; // Scaling factor for risk premium
+            const penalty = allocation * (100 - allocation);
+            const riskPremium = k * foundry.baseCost * penalty;
+
+            return discountedCost + riskPremium;
+        }
+
+        function calculateResults(allocB) {
+            const allocA = 100 - allocB;
+
+            const diesPerWafer = parseFloat(document.getElementById('diesPerWafer').value);
+            const totalDemand = parseFloat(document.getElementById('totalDemand').value) * 1e6;
+
+            const foundryA = {
+                baseCost: parseFloat(document.getElementById('foundryACost').value),
+                discount: parseFloat(document.getElementById('foundryADiscount').value),
+                yield: parseFloat(document.getElementById('foundryAYield').value) / 100,
+            };
+
+            const foundryB = {
+                baseCost: parseFloat(document.getElementById('foundryBCost').value),
+                discount: parseFloat(document.getElementById('foundryBDiscount').value),
+                yield: parseFloat(document.getElementById('foundryBYield').value) / 100,
+            };
+
+            const costA = calculateEffectiveWaferCost(foundryA, allocA);
+            const costB = calculateEffectiveWaferCost(foundryB, allocB);
+
+            const annualDiesA = diesPerWafer * foundryA.yield * (allocA / 100) * 100000;
+            const annualDiesB = diesPerWafer * foundryB.yield * (allocB / 100) * 100000;
+            const totalDies = (annualDiesA + annualDiesB) / 1e6;
+
+            const dieCostA = costA / (diesPerWafer * foundryA.yield);
+            const dieCostB = costB / (diesPerWafer * foundryB.yield);
+            const weightedDieCost = (costA * allocA + costB * allocB) / 100 / (diesPerWafer * ((foundryA.yield * allocA) + (foundryB.yield * allocB)) / 100);
+
+            const totalCost = ((dieCostA * annualDiesA + dieCostB * annualDiesB) / 1000000).toFixed(2);
+
+            return {
+                effectiveCostA: costA,
+                effectiveCostB: costB,
+                dieCostA: dieCostA,
+                dieCostB: dieCostB,
+                weightedDieCost: weightedDieCost,
+                totalCost: totalCost,
+                totalDies: totalDies,
+            };
+        }
+
+        function findOptimalAllocation() {
+            let minCost = Infinity;
+            let optimalAllocB = 0;
+            
+            // Calculate weighted die cost for each allocation percentage
+            for (let allocB = 0; allocB <= 100; allocB++) {
+                const results = calculateResults(allocB);
+                if (results.weightedDieCost < minCost) {
+                    minCost = results.weightedDieCost;
+                    optimalAllocB = allocB;
+                }
+            }
+            
+            return {
+                allocB: optimalAllocB,
+                allocA: 100 - optimalAllocB,
+                minCost: minCost
+            };
+        }
+
+        function updateResults() {
+            // Validate inputs
+            const discountInputs = ['foundryADiscount', 'foundryBDiscount'];
+            const yieldInputs = ['foundryAYield', 'foundryBYield'];
+            
+            let isValid = true;
+            discountInputs.forEach(id => {
+                const value = parseFloat(document.getElementById(id).value);
+                if (!validateInput(value, 1, 99, id)) isValid = false;
+            });
+            
+            yieldInputs.forEach(id => {
+                const value = parseFloat(document.getElementById(id).value);
+                if (!validateInput(value, 1, 99, id)) isValid = false;
+            });
+
+            if (!isValid) return;
+
+            const allocB = parseFloat(document.getElementById('allocation').value);
+            const allocA = 100 - allocB;
+
+            document.getElementById('allocA').textContent = allocA.toFixed(0);
+            document.getElementById('allocB').textContent = allocB.toFixed(0);
+
+            const results = calculateResults(allocB);
+
+            document.getElementById('effectiveCostA').textContent = results.effectiveCostA.toFixed(0);
+            document.getElementById('effectiveCostB').textContent = results.effectiveCostB.toFixed(0);
+            document.getElementById('dieCostA').textContent = results.dieCostA.toFixed(2);
+            document.getElementById('dieCostB').textContent = results.dieCostB.toFixed(2);
+            document.getElementById('weightedDieCost').textContent = results.weightedDieCost.toFixed(2);
+            document.getElementById('totalCost').textContent = results.totalCost;
+            document.getElementById('totalDies').textContent = results.totalDies.toFixed(2);
+
+            // Calculate and display optimal allocation
+            const optimal = findOptimalAllocation();
+            document.getElementById('optimalAllocA').textContent = optimal.allocA.toFixed(1);
+            document.getElementById('optimalAllocB').textContent = optimal.allocB.toFixed(1);
+            document.getElementById('minDieCost').textContent = optimal.minCost.toFixed(2);
+
+            updateChart();
+        }
+
+        function updateChart() {
+            const data = Array.from({ length: 101 }, (_, i) => calculateResults(i));
+
+            if (chart) {
+                chart.destroy();
+            }
+
+            const ctx = document.getElementById('costChart').getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.map((_, i) => i),
+                    datasets: [
+                        {
+                            label: 'Weighted Die Cost',
+                            data: data.map(d => d.weightedDieCost),
+                            borderColor: 'rgb(75, 192, 192)',
+                            yAxisID: 'y',
+                        },
+                    ],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { title: { display: true, text: 'Foundry B Allocation %' } },
+                        y: { title: { display: true, text: 'Weighted Die Cost ($)' } },
+                    },
+                },
+            });
+        }
+
+        document.querySelectorAll('input').forEach(input => {
+            input.addEventListener('input', updateResults);
+        });
+
+        updateResults();
+    </script>
+</body>
+</html>
